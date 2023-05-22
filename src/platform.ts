@@ -97,7 +97,7 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 		await this.auth()
 
 		if(!this.axios) {
-			this.log.error('Auth failed')
+			this.log.warn('Auth failed')
 			return
 		}
 

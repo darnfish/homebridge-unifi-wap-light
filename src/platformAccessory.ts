@@ -47,7 +47,7 @@ export class UniFiWAP {
    */
 	async setOn(value: CharacteristicValue) {
 		if(!this.platform.axios) {
-			this.platform.log.error(`Failed to set state for ${this.platform.axios} — axios does not exist.`)
+			this.platform.log.warn(`Failed to set state for ${this.platform.axios} — axios does not exist.`)
 			return false
 		}
 
@@ -73,7 +73,7 @@ export class UniFiWAP {
    */
 	async getOn(): Promise<CharacteristicValue> {
 		if(!this.platform.axios) {
-			this.platform.log.error(`Failed to fetch on state for ${this.platform.axios} — axios does not exist.`)
+			this.platform.log.warn(`Failed to fetch on state for ${this.platform.axios} — axios does not exist.`)
 			return false
 		}
 
