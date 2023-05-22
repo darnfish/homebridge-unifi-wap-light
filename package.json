@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "UniFi Wireless Access Point Light",
   "name": "homebridge-unifi-wap-light",
   "version": "1.0.0",
