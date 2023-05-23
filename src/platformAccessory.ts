@@ -20,9 +20,10 @@ export class UniFiWAP {
 		// set accessory information
 		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 		this.accessory.getService(this.platform.Service.AccessoryInformation)!
-			.setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-			.setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-			.setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial')
+			.setCharacteristic(this.platform.Characteristic.Manufacturer, 'Ubuquiti')
+			.setCharacteristic(this.platform.Characteristic.Model, this.accessory.context.accessPoint.model)
+			.setCharacteristic(this.platform.Characteristic.SerialNumber, this.accessory.context.accessPoint.serial)
+			.setCharacteristic(this.platform.Characteristic.Version, this.accessory.context.accessPoint.version)
 
 		// get the LightBulb service if it exists, otherwise create a new LightBulb service
 		// you can create multiple services for each accessory
@@ -30,7 +31,7 @@ export class UniFiWAP {
 
 		// set the service name, this is what is displayed as the default name on the Home app
 		// in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-		this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName)
+		this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.accessPoint.name)
 
 		// each service must implement at-minimum the "required characteristics" for the given service type
 		// see https://developers.homebridge.io/#/service/Lightbulb
@@ -51,11 +52,11 @@ export class UniFiWAP {
 			return false
 		}
 
-		await this.platform.axios.put(`proxy/network/api/s/default/rest/device/${this.accessPoint._id}`, {
+		await this.platform.axios.put(`proxy/network/api/s/default/rest/device/${this.accessory.context.accessPoint._id}`, {
 			led_override: value ? 'on' : 'off',
 		})
 
-		this.platform.log.debug(`Set ${this.accessPoint.name} ->`, value)
+		this.platform.log.debug(`Set ${this.accessory.context.accessPoint.name} ->`, value)
 	}
 
 	/**
@@ -74,12 +75,12 @@ export class UniFiWAP {
 	async getOn(): Promise<CharacteristicValue> {
 		if(!this.platform.axios) {
 			this.platform.log.warn(`Failed to fetch on state for ${this.platform.axios} — axios does not exist.`)
-			return false
+			return true
 		}
 
-		const accessPoint = await getAccessPoint(this.accessPoint._id, this.platform.axios)
+		const accessPoint = await getAccessPoint(this.accessory.context.accessPoint._id, this.platform.axios)
 
-		this.platform.log.debug(`Get ${this.accessPoint.name} ->`, accessPoint.led_override === 'on')
+		this.platform.log.debug(`Get ${this.accessory.context.accessPoint.name} ->`, accessPoint.led_override === 'on')
 
 		return accessPoint.led_override === 'on'
 	}
