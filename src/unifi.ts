@@ -9,7 +9,7 @@ export async function getAccessPoint(id: string, axios: Axios) {
 export async function getAccessPoints(axios: Axios) {
 	const { data: { data: devices } } = await axios.get('proxy/network/api/s/default/stat/device')
 
-	const accessPoints = devices.filter(device => device.is_access_point === true)
+	const accessPoints = devices.filter(device => typeof device.led_override !== 'undefined')
 
 	return accessPoints
 }
