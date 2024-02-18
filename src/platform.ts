@@ -35,10 +35,10 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 
 	constructor(
 		public readonly log: Logger,
-		public readonly config: UnifiWAPLightConfig,
+		public readonly config: PlatformConfig,
 		public readonly api: API,
 	) {
-		this.log.debug('Finished initializing platform:', this.config.name)
+		this.log.debug('Finished initializing platform:', (this.config as UnifiWAPLightConfig).name)
 
 		// When this event is fired it means Homebridge has restored all cached accessories from disk.
 		// Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -64,15 +64,15 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 
 	async auth() {
 		this.authAxios = Axios.create({
-			baseURL: `https://${this.config.host}/api`,
+			baseURL: `https://${(this.config as UnifiWAPLightConfig).host}/api`,
 			httpsAgent: new https.Agent({
 				rejectUnauthorized: false,
 			}),
 		})
 
 		const { headers } = await this.authAxios.post('/auth/login', {
-			username: this.config.username,
-			password: this.config.password,
+			username: (this.config as UnifiWAPLightConfig).username,
+			password: (this.config as UnifiWAPLightConfig).password,
 			rememberMe: true,
 		})
 
@@ -85,7 +85,7 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 		const { csrfToken } = jwt.decode(token)
 
 		this.axios = Axios.create({
-			baseURL: `https://${this.config.host}`,
+			baseURL: `https://${(this.config as UnifiWAPLightConfig).host}`,
 			headers: {
 				'Cookie': cookie.serialize('TOKEN', token),
 				'X-Csrf-Token': csrfToken,
@@ -111,11 +111,11 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 
 		let accessPoints = await getAccessPoints(this.axios)
 
-		if((this.config.includeIds?.length || 0) > 0)
-			accessPoints = accessPoints.filter(accessPoint => this.config.includeIds?.includes(accessPoint._id))
+		if(((this.config as UnifiWAPLightConfig).includeIds?.length || 0) > 0)
+			accessPoints = accessPoints.filter(accessPoint => (this.config as UnifiWAPLightConfig).includeIds?.includes(accessPoint._id))
 
-		if((this.config.excludeIds?.length || 0) > 0)
-			accessPoints = accessPoints.filter(accessPoint => !this.config.excludeIds?.includes(accessPoint._id))
+		if(((this.config as UnifiWAPLightConfig).excludeIds?.length || 0) > 0)
+			accessPoints = accessPoints.filter(accessPoint => !(this.config as UnifiWAPLightConfig).excludeIds?.includes(accessPoint._id))
 
 		// loop over the discovered devices and register each one if it has not already been registered
 		for (const accessPoint of accessPoints) {
@@ -125,9 +125,9 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 			// number or MAC address
 			const uuid = this.api.hap.uuid.generate(accessPoint._id)
 
-			const doesIncludeIdsExist = (this.config.includeIds?.length || 0) > 0
-			const doesAccessPointExistInIncludeIds = this.config.includeIds?.includes(accessPoint._id)
-			const doesAccessPointExistInExcludeIds = this.config.excludeIds?.includes(accessPoint._id)
+			const doesIncludeIdsExist = ((this.config as UnifiWAPLightConfig).includeIds?.length || 0) > 0
+			const doesAccessPointExistInIncludeIds = (this.config as UnifiWAPLightConfig).includeIds?.includes(accessPoint._id)
+			const doesAccessPointExistInExcludeIds = (this.config as UnifiWAPLightConfig).excludeIds?.includes(accessPoint._id)
 			const include = (doesIncludeIdsExist ? doesAccessPointExistInIncludeIds : true) && !doesAccessPointExistInExcludeIds
 
 			// see if an accessory with the same uuid has already been registered and restored from
