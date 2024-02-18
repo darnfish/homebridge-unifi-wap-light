@@ -109,13 +109,7 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 			return
 		}
 
-		let accessPoints = await getAccessPoints(this.axios)
-
-		if(((this.config as UnifiWAPLightConfig).includeIds?.length || 0) > 0)
-			accessPoints = accessPoints.filter(accessPoint => (this.config as UnifiWAPLightConfig).includeIds?.includes(accessPoint._id))
-
-		if(((this.config as UnifiWAPLightConfig).excludeIds?.length || 0) > 0)
-			accessPoints = accessPoints.filter(accessPoint => !(this.config as UnifiWAPLightConfig).excludeIds?.includes(accessPoint._id))
+		const accessPoints = await getAccessPoints(this.axios)
 
 		// loop over the discovered devices and register each one if it has not already been registered
 		for (const accessPoint of accessPoints) {
