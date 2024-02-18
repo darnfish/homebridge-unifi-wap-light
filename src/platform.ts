@@ -10,6 +10,14 @@ import { UniFiWAP } from './platformAccessory'
 import { getAccessPoints } from './unifi'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings'
 
+interface UnifiWAPLightConfig extends PlatformConfig {
+	host: string // "<hostname>:<port>",
+	username: string // "<username>",
+	password: string // "<password>"
+	includeIds?: string[]
+	excludeIds?: string[]
+}
+
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
@@ -26,9 +34,9 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 	authAxios?: AxiosInstance
 
 	constructor(
-    public readonly log: Logger,
-    public readonly config: PlatformConfig,
-    public readonly api: API,
+		public readonly log: Logger,
+		public readonly config: UnifiWAPLightConfig,
+		public readonly api: API,
 	) {
 		this.log.debug('Finished initializing platform:', this.config.name)
 
@@ -44,9 +52,9 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 	}
 
 	/**
-   * This function is invoked when homebridge restores cached accessories from disk at startup.
-   * It should be used to setup event handlers for characteristics and update respective values.
-   */
+	 * This function is invoked when homebridge restores cached accessories from disk at startup.
+	 * It should be used to setup event handlers for characteristics and update respective values.
+	 */
 	configureAccessory(accessory: PlatformAccessory) {
 		this.log.info('Loading accessory from cache:', accessory.displayName)
 
@@ -89,10 +97,10 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 	}
 
 	/**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
-   */
+	 * This is an example method showing how to register discovered accessories.
+	 * Accessories must only be registered once, previously created accessories
+	 * must not be registered again to prevent "duplicate UUID" errors.
+	 */
 	async discoverDevices() {
 		await this.auth()
 
@@ -101,7 +109,13 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 			return
 		}
 
-		const accessPoints = await getAccessPoints(this.axios)
+		let accessPoints = await getAccessPoints(this.axios)
+
+		if((this.config.includeIds?.length || 0) > 0)
+			accessPoints = accessPoints.filter(accessPoint => this.config.includeIds?.includes(accessPoint._id))
+
+		if((this.config.excludeIds?.length || 0) > 0)
+			accessPoints = accessPoints.filter(accessPoint => !this.config.excludeIds?.includes(accessPoint._id))
 
 		// loop over the discovered devices and register each one if it has not already been registered
 		for (const accessPoint of accessPoints) {
@@ -111,13 +125,28 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 			// number or MAC address
 			const uuid = this.api.hap.uuid.generate(accessPoint._id)
 
+			const doesIncludeIdsExist = (this.config.includeIds?.length || 0) > 0
+			const doesAccessPointExistInIncludeIds = this.config.includeIds?.includes(accessPoint._id)
+			const doesAccessPointExistInExcludeIds = this.config.excludeIds?.includes(accessPoint._id)
+			const include = (doesIncludeIdsExist ? doesAccessPointExistInIncludeIds : true) && !doesAccessPointExistInExcludeIds
+
 			// see if an accessory with the same uuid has already been registered and restored from
 			// the cached devices we stored in the `configureAccessory` method above
 			const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
 
 			if (existingAccessory) {
+				// it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
+				// remove platform accessories when no longer present
+				if(!include) {
+					this.log.info(`Removing existing accessory from cache, since it is present in excludeIds or not present in includeIds: ${existingAccessory.displayName} (${accessPoint._id})`)
+
+					this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+
+					continue
+				}
+
 				// the accessory already exists
-				this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName)
+				this.log.info(`Restoring existing accessory from cache: ${existingAccessory.displayName} (${accessPoint._id})`)
 
 				// if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
 				// existingAccessory.context.device = device;
@@ -127,28 +156,31 @@ export class UnifiWAPLight implements DynamicPlatformPlugin {
 				// this is imported from `platformAccessory.ts`
 				new UniFiWAP(this, existingAccessory)
 
-				// it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-				// remove platform accessories when no longer present
-				// this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-				// this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
-			} else {
-				// the accessory does not yet exist, so we need to create it
-				this.log.info('Adding new accessory:', accessPoint.name)
-
-				// create a new accessory
-				const accessory = new this.api.platformAccessory(accessPoint.name, uuid)
-
-				// store a copy of the device object in the `accessory.context`
-				// the `context` property can be used to store any data about the accessory you may need
-				accessory.context.accessPoint = accessPoint
-
-				// create the accessory handler for the newly create accessory
-				// this is imported from `platformAccessory.ts`
-				new UniFiWAP(this, accessory)
-
-				// link the accessory to your platform
-				this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+				continue
 			}
+
+			if(!include) {
+				this.log.info(`Found new accessory, but not adding due to its presence in excludeIds or absence in includeIds: ${accessPoint.name} (${accessPoint._id})`)
+
+				continue
+			}
+
+			// the accessory does not yet exist, so we need to create it
+			this.log.info(`Adding new accessory: ${accessPoint.name} (${accessPoint._id})`)
+
+			// create a new accessory
+			const accessory = new this.api.platformAccessory(accessPoint.name, uuid)
+
+			// store a copy of the device object in the `accessory.context`
+			// the `context` property can be used to store any data about the accessory you may need
+			accessory.context.accessPoint = accessPoint
+
+			// create the accessory handler for the newly create accessory
+			// this is imported from `platformAccessory.ts`
+			new UniFiWAP(this, accessory)
+
+			// link the accessory to your platform
+			this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
 		}
 	}
 }
